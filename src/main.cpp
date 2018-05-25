@@ -270,49 +270,8 @@ int main() {
           	    car_s = end_path_s;
           	}
 
-          	///// TEST video code
-          	float too_close = false;
-
-          	for(int i = 0; i < sensor_fusion.size(); i++) {
-          	  float d = sensor_fusion[i][6];
-          	  int check_lane = (int)(d/4);
-          	  int car_lane = (int)(car_d/4);
-
-          	  if(check_lane == car_lane) {
-          	    double vx = sensor_fusion[i][3];
-          	    double vy = sensor_fusion[i][4];
-          	    double check_speed = sqrt(vx*vx + vy*vy);
-          	    double check_car_s = sensor_fusion[i][5];
-
-          	    // predict where the car will be in the future
-          	    check_car_s += (double)prev_size * 0.02 * check_speed;
-          	    if((check_car_s > car_s) && (check_car_s - car_s) < 30) {
-          	      //ref_speed = 29.5;
-          	      //cout << sensor_fusion[i][0] << " TOO CLOSE " << check_car_s - car_s << endl;
-          	      too_close = true;
-          	      //lane_num = 0;
-          	    }
-          	  }
-          	}
-/*
-          	if(too_close)
-          	{
-          	  ref_speed -= 0.224;
-          	}
-          	else if(ref_speed < 49.5) {
-          	  ref_speed += 0.224;
-          	}
-
-          	cout << "ref_speed " << ref_speed << " car_speed " << car_speed << endl;
-*/
-          	///// end of TEST CODE
-
           	// Update traffic using sensor fusion data
-            //map<int, Vehicle> vehicles;
           	vector<Vehicle> vehicles;
-
-            // Update ego vehicle
-            //road.update_ego(car_x, car_y, car_s, car_d, car_yaw, car_speed);
 
             // Iterate through sensor fusion data: [id, x, y, vx, vy, s, d]
             for(int i = 0; i < sensor_fusion.size(); i++)
@@ -329,9 +288,6 @@ int main() {
               if(d > 0) {
                 int lane = (int)(d/4);
                 double v = sqrt(vx*vx + vy*vy);
-
-                //cout << "id " << id << " lane " << lane << " speed " << v*2.24 << endl;
-
                 Vehicle vehicle = Vehicle(id, lane, s, v, 0);
                 vehicles.push_back(vehicle);
               }
@@ -350,10 +306,10 @@ int main() {
 
             // Get ego updates
             Vehicle ego = road.get_ego();
-            //cout << "ego_speed: " << ego.v << endl;
 
             ref_speed = ego.v;
             lane_num = ego.lane;
+            //cout << "ego_speed: " << ego.v << endl;
 
             // Create a list of waypoints spaced 30m apart
             vector<double> ptsx;
@@ -376,8 +332,6 @@ int main() {
 
                ptsy.push_back(prev_car_y);
                ptsy.push_back(car_y);
-
-               //ref_speed = car_speed;
              }
              else  // use previous x and y as starting point
              {
@@ -387,7 +341,6 @@ int main() {
                double ref_x_prev = previous_path_x[prev_size-2];
                double ref_y_prev = previous_path_y[prev_size-2];
                ref_yaw = atan2(ref_y-ref_y_prev,ref_x-ref_x_prev);
-               //ref_vel = bp.target_vehicle_speed;
 
                // Append starter points for spline later
                ptsx.push_back(ref_x_prev);
@@ -471,25 +424,6 @@ int main() {
                  next_y_vals.push_back(y_point);
             }
 
-#if 0
-            // Use Frenet s, d coordinates to stay on the lane
-          	double dist_inc = 0.3;
-          	for(int i = 0; i < 50; i++)
-          	{
-          		// calcculate next s and d at i + 1 point to make the car transitioning to the next point
-          		double	next_s = car_s + (i+1)*dist_inc;
-          		// The car is in the mid lane = 1.5 points from the yellow lane, the lane is 4m wide
-          		double	next_d = 6;	// 4m * 1.5 = 6m
-
-          		// Transform s,d coordinates to Cartesian x,y to get next car position coordinate on the map
-          		vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-          		next_x_vals.push_back(next_xy[0]);
-          	  next_y_vals.push_back(next_xy[1]);
-          		//next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
-          	    //next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
-          	}
-#endif
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
