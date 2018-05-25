@@ -92,11 +92,21 @@ vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions
     }
   }
 
-  vector<float>::iterator best_cost = min_element(begin(costs), end(costs));
+  float min_cost = costs[0];
+  int best_idx = 0;
+  for(int i = 0; i < final_trajectories.size(); i++)  {
+    if(costs[i] < min_cost) {
+      min_cost = costs[i];
+      best_idx = i;
+    }
+  }
 
-  int best_idx = distance(begin(costs), best_cost);
+  //vector<float>::iterator best_cost = min_element(begin(costs), end(costs));
 
-  cout << "best lane " << final_trajectories[best_idx][1].lane << " state " << final_trajectories[best_idx][1].state << " cost " << cost << endl;
+  //int best_idx = distance(begin(costs), best_cost);
+  //int best_idx = distance(begin(costs), best_cost);
+
+  cout << "best lane " << final_trajectories[best_idx][1].lane << " state " << final_trajectories[best_idx][1].state << " cost " << min_cost << endl;
 
   return final_trajectories[best_idx];
 }
@@ -119,8 +129,10 @@ vector<string> Vehicle::successor_states() {
 
   // KL state
   if(state.compare("KL") == 0) {
-    states.push_back("PLCL");
-    states.push_back("PLCR");
+    if (lane != 0)
+      states.push_back("PLCL");
+    if (lane != lanes_available - 1)
+      states.push_back("PLCR");
   }
   // PLCL
   else if (state.compare("PLCL") == 0) {
@@ -183,7 +195,7 @@ vector<float> Vehicle::get_kinematics(map<int, vector<Vehicle>> predictions, int
       this->too_close = true;
     }
 
-    if (get_vehicle_behind(predictions, lane, vehicle_behind)) {
+    /*if (get_vehicle_behind(predictions, lane, vehicle_behind)) {
       new_velocity = vehicle_ahead.v * 2.24; //must travel at the speed of traffic, regardless of preferred buffer
 
       if(this->lane == lane) {
@@ -191,7 +203,7 @@ vector<float> Vehicle::get_kinematics(map<int, vector<Vehicle>> predictions, int
         cout << "vehicle " << vehicle_behind.id << " behind " << vehicle_behind.v*2.24 << endl;
       }
     }
-    else {
+    else */{
       //float max_velocity_in_front = (vehicle_ahead.s - this->s - this->preferred_buffer) + vehicle_ahead.v - 0.5 * (this->a);
       //new_velocity = min(min(max_velocity_in_front, max_velocity_accel_limit), this->target_speed);
       new_velocity = vehicle_ahead.v * 2.24; //must travel at the speed of traffic, regardless of preferred buffer
@@ -240,6 +252,8 @@ vector<Vehicle> Vehicle::keep_lane_trajectory(map<int, vector<Vehicle>> predicti
   float new_v = kinematics[1];
   float new_a = kinematics[2];
 
+  this->max_lane_v = new_v;
+
   trajectory.push_back(Vehicle(this->id, this->lane, new_s, new_v, new_a, "KL"));
   return trajectory;
 }
@@ -259,13 +273,16 @@ vector<Vehicle> Vehicle::prep_lane_change_trajectory(string state, map<int, vect
 
   vector<float> curr_lane_new_kinematics = get_kinematics(predictions, this->lane);
 
-  if (get_vehicle_behind(predictions, this->lane, vehicle_behind)) {
+  //if (get_vehicle_behind(predictions, this->lane, vehicle_behind)) {
+  bool is_new_lane_busy = get_vehicle_behind(predictions, new_lane, vehicle_behind);
+  if (is_new_lane_busy && vehicle_behind.v*2.24 > this->v) {
 
     //Keep speed of current lane so as not to collide with car behind.
     new_s = curr_lane_new_kinematics[0];
     new_v = curr_lane_new_kinematics[1];
     new_a = curr_lane_new_kinematics[2];
 
+    cout << "vehicle " << vehicle_behind.id << " behind " << " lane " << vehicle_behind.lane <<" speed " << vehicle_behind.v*2.24 << endl;
   } else {
 
     vector<float> best_kinematics;
@@ -300,13 +317,13 @@ vector<Vehicle> Vehicle::lane_change_trajectory(string state, map<int, vector<Ve
   //Check if a lane change is possible (check if another vehicle occupies that spot).
   for (map<int, vector<Vehicle>>::iterator it = predictions.begin(); it != predictions.end(); ++it) {
 
-    double range = fabs(next_lane_vehicle.s - this->s);
-
     next_lane_vehicle = it->second[0];
 
-    if (range < 50.0 && next_lane_vehicle.lane == new_lane) {
+    double range = fabs(next_lane_vehicle.s - this->s);
+
+    if (range < 30.0 && next_lane_vehicle.lane == new_lane) {
       //If lane change is not possible, return empty trajectory.
-      //cout << "id " << next_lane_vehicle.id << " in range " << range << endl;
+      cout << "can't move to " << state << " id " << next_lane_vehicle.id << " in range " << range << endl;
       return trajectory;
     }
   }
@@ -410,18 +427,21 @@ void Vehicle::realize_next_state(vector<Vehicle> trajectory) {
   this->lane = next_state.lane;
   this->s = next_state.s;
 
-  double next_v = next_state.v;
+  //double next_v = next_state.v;
+  double next_v = this->max_lane_v;
 
   // control the speed to avoid jerk
-  if(this->too_close == false)
-  {
-    if (this->v < next_v) {
-      this->v += 0.224;
-    }
+  if(this->v > next_v)  {
+    if(this->too_close)
+      this->v -= 0.224*2.5;
+    else
+      this->v -= 0.224;
   }
-  else  {
-    this->v -= 0.224 * 2.5;
+  else if(!this->too_close){
+    this->v += 0.224;
   }
+
+  cout << "next_v " << next_v << " ego_v " << this->v << " state " << this->state << endl;
 
   this->a = next_state.a;
 }

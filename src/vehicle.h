@@ -55,6 +55,8 @@ public:
 
   bool too_close = false;
 
+  double max_lane_v = 49.5;
+
   /**
   * Constructor
   */

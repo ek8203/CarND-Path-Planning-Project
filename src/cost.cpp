@@ -15,8 +15,9 @@
 
 
 //TODO: change weights for cost functions.
-const float LANE_CHANGE = pow(10, 3);
-const float VELOCITY    = pow(10, 5);
+const float LANE_CHANGE = 100.;
+const float VELOCITY    = 10000.;
+const float LANE_NUMBER = 1000.;
 
 /*
 Here we have provided two possible suggestions for cost functions, but feel free to use your own!
@@ -32,8 +33,18 @@ double lane_change_cost(const Vehicle & vehicle, const vector<Vehicle> & traject
   /*
   Penalize for lane change
   */
-  double intended_lane = trajectory[1].lane;
+  Vehicle trajectory_last = trajectory[1];
+  double intended_lane;
   double current_lane = vehicle.lane;
+
+  if (trajectory_last.state.compare("PLCL") == 0) {
+      intended_lane = trajectory_last.lane + 1;
+  } else if (trajectory_last.state.compare("PLCR") == 0) {
+      intended_lane = trajectory_last.lane - 1;
+  } else {
+      intended_lane = current_lane; // give advantage to LCL/R
+  }
+  //double intended_lane = trajectory[1].lane;
 
   double delta = (double)(current_lane - intended_lane);
 
@@ -41,6 +52,22 @@ double lane_change_cost(const Vehicle & vehicle, const vector<Vehicle> & traject
   double cost = get_sigmoid(delta);
 
   //cout << "current_lane " << current_lane << " intended_lane " << intended_lane << " LANE cost " << cost  << " state " << trajectory[1].state << endl;
+  return cost;
+}
+
+double lane_number_cost(const Vehicle & vehicle, const vector<Vehicle> & trajectory, const map<int, vector<Vehicle>> & predictions, map<string, float> & data) {
+  /*
+  Middle lane is preferred - lowest cost. Penalize for using not preferred lane in "KL' state
+  */
+  double intended_lane    = trajectory[1].lane;
+  double preferred_lane  = 1;
+  string state = trajectory[1].state;
+  double cost = 0;
+
+  if(state == "KL") {
+    cost = fabs(preferred_lane - intended_lane);
+  }
+
   return cost;
 }
 
@@ -114,9 +141,9 @@ double calculate_cost(const Vehicle & vehicle, const map<int, vector<Vehicle>> &
 
   //Add additional cost functions here.
   vector< function<double(const Vehicle & , const vector<Vehicle> &, const map<int, vector<Vehicle>> &, map<string,
-      float> &)>> cf_list = {lane_change_cost, velocity_cost};
+      float> &)>> cf_list = {lane_change_cost, lane_number_cost, velocity_cost};
 
-  vector<double> weight_list = {LANE_CHANGE, VELOCITY};
+  vector<double> weight_list = {LANE_CHANGE, LANE_NUMBER, VELOCITY};
 
   for (int i = 0; i < cf_list.size(); i++) {
       double new_cost = weight_list[i]*cf_list[i](vehicle, trajectory, predictions, trajectory_data);
