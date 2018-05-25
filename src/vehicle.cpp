@@ -79,8 +79,6 @@ vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions
 
     vector<Vehicle> trajectory = generate_trajectory(*it, predictions);
 
-//    cout << "t_state " << trajectory[1].state << endl;
-
     if (trajectory.size() != 0) {
 
       cost = calculate_cost(*this, predictions, trajectory);
@@ -100,11 +98,6 @@ vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions
       best_idx = i;
     }
   }
-
-  //vector<float>::iterator best_cost = min_element(begin(costs), end(costs));
-
-  //int best_idx = distance(begin(costs), best_cost);
-  //int best_idx = distance(begin(costs), best_cost);
 
   cout << "best lane " << final_trajectories[best_idx][1].lane << " state " << final_trajectories[best_idx][1].state << " cost " << min_cost << endl;
 
@@ -192,22 +185,10 @@ vector<float> Vehicle::get_kinematics(map<int, vector<Vehicle>> predictions, int
     if(this->lane == lane) {
       //cout << "vehicle " << vehicle_ahead.id << " ahead " << vehicle_ahead.s - this->s << endl;
       cout << "vehicle " << vehicle_ahead.id << " ahead " << vehicle_ahead.v*2.24 << endl;
-      this->too_close = true;
     }
 
-    /*if (get_vehicle_behind(predictions, lane, vehicle_behind)) {
-      new_velocity = vehicle_ahead.v * 2.24; //must travel at the speed of traffic, regardless of preferred buffer
-
-      if(this->lane == lane) {
-        //cout << "vehicle " << vehicle_behind.id << " behind " << this->s - vehicle_behind.s << endl;
-        cout << "vehicle " << vehicle_behind.id << " behind " << vehicle_behind.v*2.24 << endl;
-      }
-    }
-    else */{
-      //float max_velocity_in_front = (vehicle_ahead.s - this->s - this->preferred_buffer) + vehicle_ahead.v - 0.5 * (this->a);
-      //new_velocity = min(min(max_velocity_in_front, max_velocity_accel_limit), this->target_speed);
-      new_velocity = vehicle_ahead.v * 2.24; //must travel at the speed of traffic, regardless of preferred buffer
-    }
+    this->too_close = true;
+    new_velocity = vehicle_ahead.v * 2.24; // cope to speed ahead
   }
   else {
     if(this->too_close && (this->lane == lane)) {
@@ -219,11 +200,8 @@ vector<float> Vehicle::get_kinematics(map<int, vector<Vehicle>> predictions, int
     new_velocity = this->target_speed;
   }
 
+  // TODO: correct to real values - not in use for now
   new_accel = new_velocity - this->v; //Equation: (v_1 - v_0)/t = acceleration
-
-  if(new_accel < -0.224) new_accel = -0.224;
-  else if(new_accel > 0.224) new_accel = 0.224;
-
   new_position = this->s + new_velocity + new_accel / 2.0;
 
   return{new_position, new_velocity, new_accel};
@@ -252,6 +230,7 @@ vector<Vehicle> Vehicle::keep_lane_trajectory(map<int, vector<Vehicle>> predicti
   float new_v = kinematics[1];
   float new_a = kinematics[2];
 
+  // KL speed is used as the lane speed
   this->max_lane_v = new_v;
 
   trajectory.push_back(Vehicle(this->id, this->lane, new_s, new_v, new_a, "KL"));
@@ -273,8 +252,8 @@ vector<Vehicle> Vehicle::prep_lane_change_trajectory(string state, map<int, vect
 
   vector<float> curr_lane_new_kinematics = get_kinematics(predictions, this->lane);
 
-  //if (get_vehicle_behind(predictions, this->lane, vehicle_behind)) {
   bool is_new_lane_busy = get_vehicle_behind(predictions, new_lane, vehicle_behind);
+
   if (is_new_lane_busy && vehicle_behind.v*2.24 > this->v) {
 
     //Keep speed of current lane so as not to collide with car behind.
@@ -340,15 +319,6 @@ vector<Vehicle> Vehicle::lane_change_trajectory(string state, map<int, vector<Ve
   return trajectory;
 }
 
-void Vehicle::increment(int dt = 1) {
-	this->s = position_at(dt);
-}
-
-float Vehicle::position_at(int t) {
-
-  return this->s + this->v*t + this->a*t*t/2.0;
-}
-
 double Vehicle::position_at(int prev_size, double dt) {
 
   return this->s + (double)prev_size * dt * this->v;
@@ -359,7 +329,7 @@ bool Vehicle::get_vehicle_behind(map<int, vector<Vehicle>> predictions, int lane
   Returns a true if a vehicle is found behind the current vehicle, false otherwise. The passed reference
   rVehicle is updated if a vehicle is found.
   */
-  double min_range = 30;
+  double min_range = this->preferred_buffer;
   bool found_vehicle = false;
   Vehicle temp_vehicle;
 
@@ -384,7 +354,7 @@ bool Vehicle::get_vehicle_ahead(map<int, vector<Vehicle>> predictions, int lane,
   Returns a true if a vehicle is found ahead of the current vehicle, false otherwise. The passed reference
   rVehicle is updated if a vehicle is found.
   */
-  double min_range = 30;
+  double min_range = this->preferred_buffer;
   bool found_vehicle = false;
   Vehicle temp_vehicle;
 
@@ -433,26 +403,17 @@ void Vehicle::realize_next_state(vector<Vehicle> trajectory) {
   // control the speed to avoid jerk
   if(this->v > next_v)  {
     if(this->too_close)
-      this->v -= 0.224*2.5;
+      this->v -= max_acceleration * 2.5; // faster deceleration to avoid collision
     else
-      this->v -= 0.224;
+      this->v -= max_acceleration;
   }
   else if(!this->too_close){
-    this->v += 0.224;
+    this->v += max_acceleration;
   }
 
   cout << "next_v " << next_v << " ego_v " << this->v << " state " << this->state << endl;
 
   this->a = next_state.a;
-}
-
-void Vehicle::configure(vector<double> road_data) {
-    /*
-    Called by simulator before simulation begins. Sets various
-    parameters which will impact the ego vehicle.
-    */
-    target_speed = road_data[0];
-    max_acceleration = road_data[1];
 }
 
 void Vehicle::display()  {

@@ -21,23 +21,13 @@ public:
 
   map<string, int> lane_direction = {{"PLCL", -1}, {"LCL", -1}, {"LCR", 1}, {"PLCR", 1}};
 
-  struct collider{
-
-    bool collision ; // is there a collision?
-    int  time; // time collision happens
-
-  };
-
-  //int L = 1;
-
-  double preferred_buffer = 30;//6; // impacts "keep lane" behavior.
+  double preferred_buffer = 30; // impacts "keep lane" behavior.
 
   int lane = 1;
 
   double s;
 
   double v;
-  double measured_v;
 
   double a;
 
@@ -45,7 +35,7 @@ public:
 
   int lanes_available = 3;
 
-  double max_acceleration = 5.0;
+  double max_acceleration = 0.224; // max difference in speed control per iteration to avoid jerk
 
   int goal_lane = 1;
 
@@ -84,9 +74,6 @@ public:
 
   vector<Vehicle> prep_lane_change_trajectory(string state, map<int, vector<Vehicle>> predictions);
 
-  void increment(int dt);
-
-  float position_at(int t);
   double position_at(int prev_size, double dt);
 
   bool get_vehicle_behind(map<int, vector<Vehicle>> predictions, int lane, Vehicle & rVehicle);
@@ -96,8 +83,6 @@ public:
   vector<Vehicle> generate_predictions(int horizon=2);
 
   void realize_next_state(vector<Vehicle> trajectory);
-
-  void configure(vector<double> road_data);
 
   void display();
 
