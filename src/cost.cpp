@@ -44,7 +44,6 @@ double lane_change_cost(const Vehicle & vehicle, const vector<Vehicle> & traject
   } else {
       intended_lane = current_lane; // give advantage to LCL/R
   }
-  //double intended_lane = trajectory[1].lane;
 
   double delta = (double)(current_lane - intended_lane);
 
@@ -72,49 +71,21 @@ double lane_number_cost(const Vehicle & vehicle, const vector<Vehicle> & traject
 }
 
 double velocity_cost(const Vehicle & vehicle, const vector<Vehicle> & trajectory, const map<int, vector<Vehicle>> & predictions, map<string, float> & data) {
-    /*
-     * Penalize for low speed
-    */
-
-    double intended_speed  = trajectory[1].v;
-
-    double delta = (vehicle.target_speed - intended_speed)/vehicle.target_speed;
-
-    // use sigmoid to calculate the cost
-    double cost = get_sigmoid(delta);
-
-    //cout << "intended_speed " << intended_speed << " SPEED cost " << cost  << " state " << trajectory[1].state << endl;
-    return cost;
-}
-
-
-float inefficiency_cost(const Vehicle & vehicle, const vector<Vehicle> & trajectory, const map<int, vector<Vehicle>> & predictions, map<string, float> & data) {
   /*
-  Cost becomes higher for trajectories with intended lane and final lane that have traffic slower than vehicle's target speed.
-  You can use the lane_speed(const map<int, vector<Vehicle>> & predictions, int lane) function to determine the speed
-  for a lane. This function is very similar to what you have already implemented in the "Implement a Second Cost Function in C++" quiz.
+   * Penalize for low speed
   */
-  float cost;
-  float proposed_speed_intended = lane_speed(predictions, data["intended_lane"]); // in mph
-  //If no vehicle is in the proposed lane, we can travel at target speed.
-  if (proposed_speed_intended < 0) {
-      proposed_speed_intended = vehicle.target_speed;
-  }
-/*
-  float proposed_speed_final = lane_speed(predictions, data["final_lane"]);
-  if (proposed_speed_final < 0) {
-      proposed_speed_final = vehicle.target_speed;
-  }
 
-  float cost = (2.0*vehicle.target_speed - proposed_speed_intended - proposed_speed_final)/vehicle.target_speed;
-*/
-  float delta = (vehicle.target_speed - proposed_speed_intended)/vehicle.target_speed;
+  double intended_speed  = trajectory[1].v;
 
-  cost = 1./(1. + exp(-abs(delta)));
+  double delta = (vehicle.target_speed - intended_speed)/vehicle.target_speed;
 
-  //cout << vehicle.target_speed << " int_speed " << proposed_speed_intended << " speed cost " << cost  << " state " << trajectory[1].state << endl;
+  // use sigmoid to calculate the cost
+  double cost = get_sigmoid(delta);
+
+  //cout << "intended_speed " << intended_speed << " SPEED cost " << cost  << " state " << trajectory[1].state << endl;
   return cost;
 }
+
 
 float lane_speed(const map<int, vector<Vehicle>> & predictions, int lane) {
   /*
@@ -122,11 +93,11 @@ float lane_speed(const map<int, vector<Vehicle>> & predictions, int lane) {
   we can just find one vehicle in that lane.
   */
   for (map<int, vector<Vehicle>>::const_iterator it = predictions.begin(); it != predictions.end(); ++it) {
-      int key = it->first;
-      Vehicle vehicle = it->second[0];
-      if (vehicle.lane == lane && key != -1) {
-          return vehicle.v;
-      }
+    int key = it->first;
+    Vehicle vehicle = it->second[0];
+    if (vehicle.lane == lane && key != -1) {
+        return vehicle.v;
+    }
   }
   //Found no vehicle in the lane
   return -1.0;
@@ -175,12 +146,10 @@ map<string, float> get_helper_data(const Vehicle & vehicle, const vector<Vehicle
       intended_lane = trajectory_last.lane;
   }
 
-  //float distance = vehicle.s - trajectory_last.s;
   float final_lane = trajectory_last.lane;
 
   trajectory_data["intended_lane"] = intended_lane;
   trajectory_data["final_lane"] = final_lane;
-  //trajectory_data["distance"] = distance;
   return trajectory_data;
 }
 
