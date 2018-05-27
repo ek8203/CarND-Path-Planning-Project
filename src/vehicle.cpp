@@ -192,7 +192,7 @@ vector<float> Vehicle::get_kinematics(map<int, vector<Vehicle>> predictions, int
   }
   else {
     if(this->too_close && (this->lane == lane)) {
-      cout << "not too close!!!" << endl;
+      //cout << "not too close!!!" << endl;
       this->too_close = false;
     }
 
@@ -245,6 +245,7 @@ vector<Vehicle> Vehicle::prep_lane_change_trajectory(string state, map<int, vect
   float new_v;
   float new_a;
   Vehicle vehicle_behind;
+  Vehicle vehicle_ahead;
 
   int new_lane = this->lane + lane_direction[state];
 
@@ -252,9 +253,10 @@ vector<Vehicle> Vehicle::prep_lane_change_trajectory(string state, map<int, vect
 
   vector<float> curr_lane_new_kinematics = get_kinematics(predictions, this->lane);
 
-  bool is_new_lane_busy = get_vehicle_behind(predictions, new_lane, vehicle_behind);
+  bool is_new_lane_busy = get_vehicle_behind(predictions, new_lane, vehicle_behind) &&
+                          get_vehicle_ahead(predictions, new_lane, vehicle_ahead);
 
-  if (is_new_lane_busy && vehicle_behind.v*2.24 > this->v) {
+  if (is_new_lane_busy && ((vehicle_behind.v*2.24 > this->v - 5.) || (vehicle_behind.v*2.24 < this->v + 5.))) {
 
     //Keep speed of current lane so as not to collide with car behind.
     new_s = curr_lane_new_kinematics[0];
@@ -300,9 +302,10 @@ vector<Vehicle> Vehicle::lane_change_trajectory(string state, map<int, vector<Ve
 
     double range = fabs(next_lane_vehicle.s - this->s);
 
-    if (range < 30.0 && next_lane_vehicle.lane == new_lane) {
+    if ((range < this->preferred_buffer/2.0) && (next_lane_vehicle.lane == new_lane)) {
       //If lane change is not possible, return empty trajectory.
       cout << "can't move to " << state << " id " << next_lane_vehicle.id << " in range " << range << endl;
+
       return trajectory;
     }
   }
